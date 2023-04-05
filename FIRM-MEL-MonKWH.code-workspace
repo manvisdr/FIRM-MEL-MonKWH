@@ -1,0 +1,25 @@
+{
+	"folders": [
+		{
+			"name": "esp_kwh_dlms_v0",
+			"path": "esp_kwh_dlms_v0"
+		},
+		{
+			"name": "esp_kwh_edmicmd_v0",
+			"path": "esp_kwh_edmicmd_v0"
+		},
+		{
+			"name": "esp_monkwh_control_dlms_v0",
+			"path": "esp_monkwh_control_dlms_v0"
+		},
+		{
+			"name": "esp_monkwh_v1_lora",
+			"path": "esp_monkwh_v1_lora"
+		},
+		{
+			"name": "esp_monkwh_v1.1_lora",
+			"path": "esp_monkwh_v1.1_lora"
+		}
+	],
+	"settings": {}
+}

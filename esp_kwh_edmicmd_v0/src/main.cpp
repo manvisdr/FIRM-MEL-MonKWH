@@ -149,6 +149,11 @@ void blinkACTIVEOff()
   digitalWrite(PIN_LED_ACTIVE_KWH, LOW);
 }
 
+void PRINTDBG_meter(const char *)
+{
+  // Serial.printf();
+}
+
 int loadEthConfig(/* char *payload, */ ethernetConfig &config)
 {
   StaticJsonDocument<1024> doc;
@@ -228,9 +233,8 @@ void KWHInit()
   PREFSstan = PREFS.getUInt("stan", 0);
   PREFSbalance = PREFS.getUInt("balance", 0);
   PREFSCredit = PREFS.getUInt("credit", 0);
-  Serial.printf("MEMORY DATA -> stan: %d balance: %d credit: %d\n");
+  Serial.printf("MEMORY DATA -> stan: %d balance: %d credit: %d\n", PREFSstan, PREFSbalance, PREFSCredit);
   strcpy(currentDataMeter.serialnumber, edmiread.serialNumber().c_str());
-  Serial.println("get KWH SerialNumber in setup()");
   Serial.printf("%s\n", currentDataMeter.serialnumber);
   currentDataMeter.currentCredit = PREFSCredit;
   edmiread.manual_login();
@@ -242,16 +246,21 @@ void KWHInit()
     PREFS.putUInt("stan", PREFSstan);
   }
   kwhStanNow = initStan;
-  balanceNow = PREFSbalance;
+  balanceNow = PREFSbalance - (initStan - PREFSstan);
   edmiread.manual_logout();
-  Serial.println(datameter.serialnumber);
+  Serial.println(PREFSstan);
+  Serial.println(PREFSbalance);
+  Serial.println(PREFSbalance);
 }
 
 uint32_t readKWH()
 {
-  edmiread.manual_login();
-  blinkLINKOn();
-  uint32_t stanNow = (uint32_t)edmiread.read_kwhTotal() / kwhUnit;
+  uint32_t stanNow;
+  if (edmiread.manual_login() == 1)
+  {
+    blinkLINKOn();
+    stanNow = (uint32_t)edmiread.read_kwhTotal() / kwhUnit;
+  }
   edmiread.manual_logout();
   blinkLINKOff();
   return stanNow;
@@ -275,7 +284,11 @@ void JsonInit()
   ethernet["ipdns"] = "0.0.0.0";
 
   deviceDoc["internet"] = true;
+#ifdef USE_WIFI
+  esp_read_mac(ethConf.mac, ESP_MAC_WIFI_STA);
+#else
   esp_read_mac(ethConf.mac, ESP_MAC_ETH);
+#endif
   deviceDoc["mac"] = mac2String(ethConf.mac);
 }
 
@@ -305,12 +318,32 @@ void sendMqttBuffer(char *topic, char *buffer)
   mqtt.publish(topic, buffer);
 }
 
+void updateInternetData()
+{
+
+  // ethernet["ipaddress"] = "0.0.0.0";
+  // ethernet["ipgateway"] = "0.0.0.0";
+  // ethernet["ipsubnet"] = "0.0.0.0";
+  // ethernet["ipdns"] = "0.0.0.0";
+}
+
 void updateData()
 {
   char buffer[100];
   JsonDevice(1);
   JsonKWH();
-  // serializeJson(deviceDoc, buffer);
+
+#ifdef USE_WIFI
+  deviceDoc["ethernet"]["ipaddress"] = WiFi.localIP().toString();
+  deviceDoc["ethernet"]["ipgateway"] = WiFi.gatewayIP().toString();
+  deviceDoc["ethernet"]["ipsubnet"] = WiFi.subnetMask().toString();
+  deviceDoc["ethernet"]["ipdns"] = WiFi.dnsIP().toString();
+#endif
+  // ethernet["ipaddress"] = "0.0.0.0";
+  // ethernet["ipgateway"] = "0.0.0.0";
+  // ethernet["ipsubnet"] = "0.0.0.0";
+  // ethernet["ipdns"] = "0.0.0.0";
+
   blinkACTIVEOn();
   sprintf(buffer, "%0.3f", currentDataMeter.currentStan);
   mqtt.beginPublish(topicDevice, measureJson(deviceDoc), false);
@@ -334,7 +367,7 @@ void ProcessLooping()
 
   if (kwhStanNow != kwhStanPrev)
   {
-    balanceNow = balanceNow - 10;
+    balanceNow = balanceNow - (kwhStanNow - kwhStanPrev);
     PREFS.putUInt("balance", balanceNow);
     PREFS.putUInt("stan", kwhStanNow);
   }
@@ -425,14 +458,7 @@ int TopupProcess()
       received_msg = false;
       return -1;
     }
-    // JsonObject root = transactionDocReqs.to<JsonObject>();
-    // JsonVariant bufferVariant = root["state"];
-    // if (!bufferVariant.isNull())
-    // {
-    //   Serial.println(bufferVariant.as<const char *>());
-    //   received_msg = false;
-    //   return -1;
-    // }
+
     const char *state = transactionDocReqs["state"]; // "topup"
     int credit = transactionDocReqs["credit"];
     currentDataMeter.currentCredit = credit;
@@ -479,9 +505,8 @@ void setup()
   JsonInit();
 
   KWHInit();
-  // Serial.printf("%.3f", edmiread.voltR());
-  // Serial.println(datameter.serialnumber);
-  Alarm.timerRepeat(15, updateData /* CheckPingSend */);
+
+  Alarm.timerRepeat(15, updateData);
 }
 
 long mil;
@@ -490,7 +515,6 @@ void loop()
 {
   if (!getSerial)
   {
-    Serial.println("get data serial in loop");
     strcpy(currentDataMeter.serialnumber, edmiread.serialNumber().c_str());
     getSerial = true;
   }

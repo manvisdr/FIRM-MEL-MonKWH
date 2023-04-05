@@ -1,0 +1,12 @@
+{
+  "device": {
+    "id": 1313,
+    "firmVer": "0.0",
+    "timeRecord": 1
+  },
+  "lora": {
+    "devid": "3bad8eb1",
+    "nwks": "927b1ef8e776a54185c1a51fdd43dfcb",
+    "apps": "927b1ef8e776a54185c1a51fdd43dfcb"
+  }
+}

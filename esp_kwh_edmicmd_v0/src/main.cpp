@@ -11,6 +11,7 @@
 #include <TimeLib.h>
 #include <TimeAlarms.h>
 #include "EDMICmdLine.h"
+#include <SettingsManager.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -345,7 +346,7 @@ void updateData()
   // ethernet["ipdns"] = "0.0.0.0";
 
   blinkACTIVEOn();
-  sprintf(buffer, "%0.3f", currentDataMeter.currentStan);
+
   mqtt.beginPublish(topicDevice, measureJson(deviceDoc), false);
   BufferingPrint bufferedClient(mqtt, 32);
   serializeJson(deviceDoc, bufferedClient);
@@ -495,8 +496,8 @@ void setup()
 
   // WiFi.disconnect();
   WiFi.mode(WIFI_MODE_STA);
-  // WiFi.begin("MGI-MNC", "#neurixmnc#");
-  WiFi.begin("lepi", "1234567890");
+  WiFi.begin("MGI-MNC", "#neurixmnc#");
+  // WiFi.begin("lepi", "1234567890");
   // WiFi.begin("WiFi kost", "rumahkos");
 
   mqtt.setServer(mqttServer, 1883);

@@ -1,0 +1,36 @@
+#include <Arduino.h>
+#include <EEPROM.h>
+#include "GXDLMSClient.h"
+
+const uint32_t WAIT_TIME = 2000;
+const uint8_t RESEND_COUNT = 3;
+uint32_t runTime = 0;
+
+int com_read(gxObject *object, unsigned char attributeOrdinal);
+int com_readSerialPort(unsigned char eop);
+int com_initializeConnection();
+uint16_t EEPROM_SIZE();
+int EEPROM_READ(uint16_t index, unsigned char *value);
+int EEPROM_WRITE(uint16_t index, unsigned char value);
+void GXTRACE(const char *str, const char *data);
+void GXTRACE_INT(const char *str, int32_t value);
+uint32_t time_elapsed(void);
+void time_now(gxtime *value);
+int com_readSerialPort(unsigned char eop);
+int readDLMSPacket(gxByteBuffer *data, gxReplyData *reply);
+int com_readDataBlock(message *messages, gxReplyData *reply);
+int com_close();
+int com_updateInvocationCounter(const char *invocationCounter);
+int com_initializeConnection();
+int com_getAssociationView();
+int com_read(gxObject *object, unsigned char attributeOrdinal);
+int com_write(gxObject *object, unsigned char attributeOrdinal);
+int com_method(gxObject *object, unsigned char attributeOrdinal, dlmsVARIANT *params);
+int com_readList(gxArray *list);
+int com_readRowsByEntry(gxProfileGeneric *object, unsigned long index, unsigned long count);
+int com_readRowsByRange(gxProfileGeneric *object, gxtime *start, gxtime *end);
+int com_readScalerAndUnits();
+int com_readProfileGenericColumns();
+int com_readProfileGenerics();
+int com_readValues();
+int com_readAllObjects(const char *invocationCounter);

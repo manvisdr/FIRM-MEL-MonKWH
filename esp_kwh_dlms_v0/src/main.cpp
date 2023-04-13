@@ -9,6 +9,7 @@
 #include <ArduinoJson.h>
 #include <StreamUtils.h>
 #include <EthernetSPI2.h>
+#include <SettingsManager.h>
 
 #include <TimeLib.h>
 #include <TimeAlarms.h>
@@ -32,6 +33,9 @@ PubSubClient mqtt(ethclient);
 
 IPAddress mqttServer(203, 194, 112, 238);
 Preferences PREFS;
+SettingsManager settings;
+
+uint32_t readKWH();
 
 StaticJsonDocument<256> deviceDoc;
 StaticJsonDocument<256> meterDoc;
@@ -745,12 +749,6 @@ int com_readTokenPrev()
   GXTRACE(PSTR("TokenTime : "), timeRead);
 
   Serial.printf("\nenum Value : %d\n", (int)&objToken.status);
-  // GXTRACE(PSTR("TokenTime : "), statusRead);
-  // &objToken.status;
-  // time_toString(&objToken.time, &tokenTimeBuff);
-  // timeRead = bb_toString(&tokenTimeBuff);
-  // Serial.println(" ");
-  // GXTRACE(PSTR("TokenTime : "), timeRead);
 
   // &objToken.descriptions;
   arr_getByIndex(&objToken.descriptions, 5, (void **)descRead);
@@ -1013,7 +1011,8 @@ void KWHReadingInit()
   PREFSstan = PREFS.getUInt("stan", 0);
   PREFSbalance = PREFS.getUInt("balance", 0);
   PREFSCredit = PREFS.getUInt("credit", 0);
-  Serial.printf("MEMORY DATA -> stan: %d balance: %d credit: %d\n");
+  Serial.printf("MEMORY DATA -> stan: %d balance: %d credit: %d\n", PREFSstan, PREFSbalance, PREFSCredit);
+  com_readStaticOnce();
   Serial.printf("%s\n", currentDataMeter.serialnumber);
   currentDataMeter.currentCredit = PREFSCredit;
   initStan = readKWH();
@@ -1024,7 +1023,6 @@ void KWHReadingInit()
   }
   kwhStanNow = initStan;
   balanceNow = PREFSbalance;
-  Serial.println(currentDataMeter.serialnumber);
 }
 
 void MqttCallback(char *topic, byte *payload, unsigned int length)
@@ -1060,7 +1058,9 @@ void MqttReconnect()
   while (!mqtt.connected() and WiFi.status() == WL_CONNECTED)
   {
     Serial.print("Attempting MQTT connection...");
-    String clientId = "MonKWHControl_" + String(idDevice);
+    // String clientId = "MonKWHControl_" + String(idDevice);
+    String clientId = "MonKWHControl-";
+    clientId += String(random(0xffff), HEX);
     if (mqtt.connect(clientId.c_str()))
     {
       Serial.println("connected");
@@ -1078,8 +1078,6 @@ void MqttReconnect()
 
 uint32_t readKWH()
 {
-  blinkLINKOn();
-
   int ret;
   ret = com_initializeConnection();
   if (ret != DLMS_ERROR_CODE_OK)
@@ -1087,6 +1085,7 @@ uint32_t readKWH()
     GXTRACE_INT(GET_STR_FROM_EEPROM("com_initializeConnection failed"), ret);
     return ret;
   }
+  blinkLINKOn();
   gxRegister objKwhTotal;
   cosem_init(BASE(objKwhTotal), DLMS_OBJECT_TYPE_REGISTER, "1.0.2.8.0.255");
   com_read(BASE(objKwhTotal), 3);
@@ -1116,7 +1115,11 @@ void JsonInit()
   ethernet["ipdns"] = "0.0.0.0";
 
   deviceDoc["internet"] = true;
+#ifdef USE_WIFI
+  esp_read_mac(ethConf.mac, ESP_MAC_WIFI_STA);
+#else
   esp_read_mac(ethConf.mac, ESP_MAC_ETH);
+#endif
   deviceDoc["mac"] = mac2String(ethConf.mac);
 }
 
@@ -1156,13 +1159,13 @@ void ProcessLooping()
 
   if (kwhStanNow != kwhStanPrev)
   {
-    balanceNow = balanceNow - 10;
+    balanceNow = balanceNow - (kwhStanNow - kwhStanPrev);
     PREFS.putUInt("balance", balanceNow);
     PREFS.putUInt("stan", kwhStanNow);
   }
   Serial.printf("balance: %d\n", balanceNow);
   currentDataMeter.currentBalance = balanceNow;
-  if (currentDataMeter.currentBalance == 0)
+  if (currentDataMeter.currentBalance <= 0)
   {
     currentDataMeter.contactState = 0;
     // digitalWrite(PIN_CONTACT, LOW);
@@ -1228,16 +1231,24 @@ int TopupProcess()
   }
   else
     return 1;
+  return 1;
 }
 
 void updateData()
 {
   char buffer[100];
-  com_readCurrentDataMeter();
+  // com_readCurrentDataMeter();
   JsonDevice(1);
   JsonKWH();
-  // serializeJson(deviceDoc, buffer);
 
+#ifdef USE_WIFI
+  deviceDoc["ethernet"]["ipaddress"] = WiFi.localIP().toString();
+  deviceDoc["ethernet"]["ipgateway"] = WiFi.gatewayIP().toString();
+  deviceDoc["ethernet"]["ipsubnet"] = WiFi.subnetMask().toString();
+  deviceDoc["ethernet"]["ipdns"] = WiFi.dnsIP().toString();
+#endif
+
+  blinkACTIVEOn();
   mqtt.beginPublish(topicDevice, measureJson(deviceDoc), false);
   BufferingPrint bufferedClient(mqtt, 32);
   serializeJson(deviceDoc, bufferedClient);
@@ -1246,6 +1257,7 @@ void updateData()
 
   serializeJson(meterDoc, buffer);
   mqtt.publish(topicMeter, buffer);
+  blinkACTIVEOff();
 }
 
 void setup()
@@ -1256,7 +1268,7 @@ void setup()
   pinMode(PIN_LED_LINK_KWH, OUTPUT);
   pinMode(PIN_LED_ACTIVE_KWH, OUTPUT);
 
-  // WiFi.disconnect();
+  WiFi.disconnect();
   WiFi.mode(WIFI_MODE_STA);
   // WiFi.begin("MGI-MNC", "#neurixmnc#");
   WiFi.begin("lepi", "1234567890");
@@ -1265,14 +1277,12 @@ void setup()
   mqtt.setServer(mqttServer, 1883);
   mqtt.setCallback(MqttCallback);
   MqttTopicInit();
-  JsonInit();
+  // JsonInit();
 
-  KWHDLMS_init();
-  com_readStaticOnce();
-  KWHReadingInit();
+  // KWHDLMS_init();
+  // KWHReadingInit();
 
-  // setTime(currentDataMeter.timeUnix);
-  Alarm.timerRepeat(15, updateData /* CheckPingSend */);
+  // Alarm.timerRepeat(15, updateData);
 }
 
 long mil = 0;
@@ -1283,9 +1293,11 @@ void loop()
   {
     MqttReconnect();
   }
-  saveEthConfigMqtt();
-  ProcessLooping();
-  TopupProcess();
+
+  // saveEthConfigMqtt();
+  // ProcessLooping();
+  // TopupProcess();
+
   mqtt.loop();
-  Alarm.delay(0);
+  // Alarm.delay(0);
 }

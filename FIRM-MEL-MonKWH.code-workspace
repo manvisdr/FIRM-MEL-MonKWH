@@ -19,7 +19,15 @@
 		{
 			"name": "esp_monkwh_v1.1_lora",
 			"path": "esp_monkwh_v1.1_lora"
+		},
+		{
+			"name": "esp_monkwh_dlms_v1.1_lora",
+			"path": "esp_monkwh_dlms_v1.1_lora"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.associations": {
+			"cmath": "cpp"
+		}
+	}
 }

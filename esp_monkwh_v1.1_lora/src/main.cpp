@@ -215,11 +215,10 @@ void KWHUpdateData(dataKWH &datakwh)
 
 void KWHDataSend(char *buffer)
 {
-  char bufferdata[255];
   sprintf(buffer, "~*%d*%s*%d*%s*%s*%s*%s*%s*%s*%s*%s*%s*%s*%s*%s*%s*%s*%s#",
           TYPE_KWH,
-          currentDataKWH.serialnumber,
           settingVar.devId,
+          currentDataKWH.serialnumber,
           String(currentDataKWH.voltR * 1000, 4).c_str(),
           String(currentDataKWH.voltS * 1000, 4).c_str(),
           String(currentDataKWH.voltT * 1000, 4).c_str(),
@@ -244,8 +243,8 @@ void formatLogging(/* char *buffer */)
 {
   char timeFormat[20];
   char buffer[255];
-  Serial.println(now());
-  sprintf(timeFormat, "%d/%d/%d", year(), month(), day(), hour(), minute(), second());
+
+  sprintf(timeFormat, "%d/%d/%d %d:%d%d\n", year(), month(), day(), hour(), minute(), second());
   sprintf(buffer, "%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
           now(),
           currentDataKWH.serialnumber,
@@ -264,7 +263,8 @@ void formatLogging(/* char *buffer */)
           String(currentDataKWH.kwh_bp / 1000.0, 2).c_str(),
           String(currentDataKWH.kwh_lpb / 1000.0, 2).c_str(),
           String(currentDataKWH.kwh_total / 1000.0, 2).c_str());
-  Serial.println(buffer);
+  // Serial.println(buffer);
+  Serial.println(timeFormat);
 }
 
 void KWHLogging()
@@ -325,6 +325,7 @@ void loop()
     fcnt = preferences.getUInt("lora_fcnt", 0);
     Serial.printf("Frame Counter: %d\n", fcnt);
     kwhReadReady = false;
+    formatLogging
     blinkACTIVEOff();
   }
   else if (status != EdmiCMDReader::Status::Busy)

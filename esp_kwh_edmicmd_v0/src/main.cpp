@@ -463,7 +463,6 @@ int TopupProcess()
     const char *state = transactionDocReqs["state"]; // "topup"
     int credit = transactionDocReqs["credit"];
     currentDataMeter.currentCredit = credit;
-    // 2312312312312312300
     Serial.println(state);
     Serial.println(credit);
 

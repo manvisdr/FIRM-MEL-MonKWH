@@ -1,10 +1,6 @@
 {
 	"folders": [
 		{
-			"name": "esp_kwh_dlms_v0",
-			"path": "esp_kwh_dlms_v0"
-		},
-		{
 			"name": "esp_kwh_edmicmd_v0",
 			"path": "esp_kwh_edmicmd_v0"
 		},
